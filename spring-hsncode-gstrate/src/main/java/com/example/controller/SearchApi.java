@@ -8,21 +8,35 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.configuration.FileLocationAppConfig;
+import com.example.configuration.FileLocationConfig;
 import com.example.model.GstModel;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.CollectionType;
 
 @RestController
 public class SearchApi {
+	
+	@Autowired
+	private FileLocationConfig config;
+	
+	@Value("${file_path}")
+	private String file_path;
+	
+	@Autowired
+	private FileLocationAppConfig configuration;
 
 	@GetMapping("/gstrate")
 	public List<GstModel> getGstModel() {
@@ -80,21 +94,16 @@ public class SearchApi {
 	@GetMapping("/gstrate/{hsncode}")
 	public String getGstRateForHsnCode(@PathVariable(value = "hsncode") String hsncode) throws IOException {
 
-		List<GstModel> gstModelList = getGstModelList();
-
-		for (GstModel model : gstModelList) {
-			if (model.getCode().equalsIgnoreCase(hsncode)) {
-				return model.getIgst();
-			}
-		}
-		return null;
-
+		Optional<String> igst = getGstModelList().stream()
+				.filter(gstModel -> gstModel.getCode().equalsIgnoreCase(hsncode)).map(gstModel -> gstModel.getIgst())
+				.findFirst();
+		return igst.orElse("Not Availble");
 	}
 
 	private List<GstModel> getGstModelList() throws IOException {
 		ObjectMapper mapper = new ObjectMapper();
 		CollectionType listType = mapper.getTypeFactory().constructCollectionType(ArrayList.class, GstModel.class);
-		return mapper.readValue(new File("src/main/resources/files/properjson/gstrates.json"), listType);
+		return mapper.readValue(new File(this.getClass().getResource("/files/properjson/gstrates.json").getFile()), listType);
 	}
 
 }
